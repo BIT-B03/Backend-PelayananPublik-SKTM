@@ -94,3 +94,19 @@ def logout_controller(payload: dict) -> Tuple[dict, int]:
             pass
 
     return {"message": "Logout success"}, 200
+
+
+def refresh_controller(payload: dict) -> Tuple[dict, int]:
+    """Rotate refresh token: block current refresh jti and issue new access+refresh."""
+    claims = get_jwt()
+    identity = get_jwt_identity()
+    jti = claims.get("jti")
+
+    if jti:
+        try:
+            add_jti_block(jti=jti, token_type=claims.get("type", "refresh"), identity=str(identity))
+        except Exception:
+            pass
+
+    tokens = create_tokens_for_user(identity=identity, role=None)
+    return tokens, 200
