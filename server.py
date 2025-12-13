@@ -22,6 +22,13 @@ def create_app(config_class: type[Config] = Config) -> Flask:
         import models  
         from routes.authRoutes import auth_bp
         app.register_blueprint(auth_bp)
+        # register userKondisiEkonomi blueprint
+        try:
+            from routes.userKondisiEkonomiRoutes import user_kondisi_bp
+            app.register_blueprint(user_kondisi_bp)
+        except Exception:
+            # avoid breaking app if route import fails
+            print("userKondisiEkonomi routes not registered")
         try:
             db.session.execute(text("SELECT 1 "))
             print("Database Connected")
