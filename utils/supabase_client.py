@@ -1,8 +1,13 @@
 import os
 from supabase import create_client
+from datetime import datetime, timedelta
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
+
+# Defaults (days)
+DEVICE_EXPIRES_DAYS = int(os.environ.get("DEVICE_EXPIRES_DAYS", "14"))
+TOKEN_BLOCKLIST_EXPIRES_DAYS = int(os.environ.get("TOKEN_BLOCKLIST_EXPIRES_DAYS", "30"))
 
 _client = None
 if SUPABASE_URL and SUPABASE_KEY:
@@ -24,7 +29,14 @@ def _ensure_client():
 
 def create_device_record(device_id: str, nik: int, device_name: str | None = None):
     client = _ensure_client()
-    data = {"device_id": device_id, "nik": nik}
+    now = datetime.utcnow()
+    data = {
+        "device_id": device_id,
+        "nik": nik,
+        "issued_at": now.isoformat() + "Z",
+        "expires_at": (now + timedelta(days=DEVICE_EXPIRES_DAYS)).isoformat() + "Z",
+        "revoked": False,
+    }
     if device_name:
         data["device_name"] = device_name
     res = client.table("device").insert(data).execute()
@@ -41,7 +53,13 @@ def is_device_revoked(device_id: str) -> bool:
 
 def add_jti_block(jti: str, token_type: str, identity: str | None = None, reason: str | None = None):
     client = _ensure_client()
-    data = {"jti": jti, "token_type": token_type}
+    now = datetime.utcnow()
+    data = {
+        "jti": jti,
+        "token_type": token_type,
+        "issued_at": now.isoformat() + "Z",
+        "expires_at": (now + timedelta(days=TOKEN_BLOCKLIST_EXPIRES_DAYS)).isoformat() + "Z",
+    }
     if identity:
         data["identity"] = identity
     if reason:
