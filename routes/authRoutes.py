@@ -9,14 +9,14 @@ auth_bp = Blueprint("auth", __name__, url_prefix="/auth")
 
 @auth_bp.route("/register", methods=["POST"])
 def register():
-    payload = request.get_json() or {}
+    payload = request.get_json(silent=True) or request.form.to_dict() or {}
     body, status = register_controller(payload)
     return jsonify(body), status
 
 
 @auth_bp.route("/login", methods=["POST"])
 def login():
-    payload = request.get_json() or {}
+    payload = request.get_json(silent=True) or request.form.to_dict() or {}
     body, status = login_controller(payload)
     return jsonify(body), status
 
