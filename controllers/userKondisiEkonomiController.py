@@ -1,63 +1,59 @@
 from extension import db
 from models.kondisirumahModel import KondisiRumah
 from models.kondisiekonomiModel import KondisiEkonomi
-from schema.userKondisiEkonomiSchema import (
-    UserKondisiEkonomiSchema,
-    KondisiRumahSchema,
-    KondisiEkonomiSchema,
-)
-from utils.supabase_client import upload_file
-from werkzeug.utils import secure_filename
+from models.masyarakatModel import Masyarakat
+from schema.userKondisiEkonomiSchema import user_schema, rumah_schema, ekonomi_schema
+from utils.supabase_client import upload_file_from_storage
 import os
 from marshmallow import ValidationError
-from uuid import uuid4
-
-user_schema = UserKondisiEkonomiSchema()
-rumah_schema = KondisiRumahSchema()
-ekonomi_schema = KondisiEkonomiSchema()
-
-
-def _upload_and_get_url(nik: int, file_storage, bucket: str, dest_folder: str, field_name: str):
-    if not file_storage:
-        return None
-    filename = secure_filename(file_storage.filename or field_name)
-    base, ext = os.path.splitext(filename)
-    unique_name = f"{base}_{uuid4().hex}{ext}"
-    path = f"{nik}/{dest_folder}/{unique_name}"
-    file_bytes = file_storage.read()
-    url = upload_file(bucket, path, file_bytes, content_type=file_storage.mimetype)
-    return url
-
+from flask import request, jsonify
 
 def create_user_kondisi(payload: dict, files: dict):
-    # payload: dict from form (nik, nominal_slip_gaji, daya_listrik_va optional)
-    # files: dict-like from request.files
     try:
         nik = int(payload.get("nik"))
     except Exception:
         return {"message": "Missing or invalid nik"}, 400
 
-    # check existing
+    # ensure the masyarakat (person) exists before inserting kondisi records
+    if not Masyarakat.query.filter_by(nik=nik).first():
+        return {"message": "Masyarakat dengan nik tidak ditemukan. Silakan buat data masyarakat terlebih dahulu."}, 404
+
     if KondisiRumah.query.filter_by(nik=nik).first() or KondisiEkonomi.query.filter_by(nik=nik).first():
         return {"message": "Data for this nik already exists"}, 400
 
     bucket = os.environ.get("SUPABASE_STORAGE_BUCKET", "public")
 
-    # upload expected files and build nested payload
     kondisi_rumah = {}
     kondisi_ekonomi = {}
 
     # house photos
-    kondisi_rumah["foto_depan_rumah"] = _upload_and_get_url(nik, files.get("foto_depan_rumah"), bucket, "kondisi_rumah", "foto_depan_rumah")
-    kondisi_rumah["foto_atap"] = _upload_and_get_url(nik, files.get("foto_atap"), bucket, "kondisi_rumah", "foto_atap")
-    kondisi_rumah["foto_lantai"] = _upload_and_get_url(nik, files.get("foto_lantai"), bucket, "kondisi_rumah", "foto_lantai")
-    kondisi_rumah["foto_kamar_mandi"] = _upload_and_get_url(nik, files.get("foto_kamar_mandi"), bucket, "kondisi_rumah", "foto_kamar_mandi")
+    kondisi_rumah["foto_depan_rumah"] = upload_file_from_storage(bucket, nik, files.get("foto_depan_rumah"), "kondisi_rumah", "foto_depan_rumah")
+    kondisi_rumah["foto_atap"] = upload_file_from_storage(bucket, nik, files.get("foto_atap"), "kondisi_rumah", "foto_atap")
+    kondisi_rumah["foto_lantai"] = upload_file_from_storage(bucket, nik, files.get("foto_lantai"), "kondisi_rumah", "foto_lantai")
+    kondisi_rumah["foto_kamar_mandi"] = upload_file_from_storage(bucket, nik, files.get("foto_kamar_mandi"), "kondisi_rumah", "foto_kamar_mandi")
 
     # ekonomi photos and fields
-    kondisi_ekonomi["nominal_slip_gaji"] = int(payload.get("nominal_slip_gaji")) if payload.get("nominal_slip_gaji") else None
-    kondisi_ekonomi["foto_slip_gaji"] = _upload_and_get_url(nik, files.get("foto_slip_gaji"), bucket, "kondisi_ekonomi", "foto_slip_gaji")
-    kondisi_ekonomi["daya_listrik_va"] = int(payload.get("daya_listrik_va")) if payload.get("daya_listrik_va") else None
-    kondisi_ekonomi["foto_token_listrik"] = _upload_and_get_url(nik, files.get("foto_token_listrik"), bucket, "kondisi_ekonomi", "foto_token_listrik")
+    # validate numeric inputs and return 400 on invalid types (avoid 500 internal error)
+    nominal_raw = payload.get("nominal_slip_gaji")
+    if nominal_raw:
+        try:
+            nominal_val = int(nominal_raw)
+        except (TypeError, ValueError):
+            return {"message": "nominal_slip_gaji harus berupa angka (integer)"}, 400
+    else:
+        nominal_val = None
+    kondisi_ekonomi["nominal_slip_gaji"] = nominal_val
+    kondisi_ekonomi["foto_slip_gaji"] = upload_file_from_storage(bucket, nik, files.get("foto_slip_gaji"), "kondisi_ekonomi", "foto_slip_gaji")
+    daya_raw = payload.get("daya_listrik_va")
+    if daya_raw:
+        try:
+            daya_val = int(daya_raw)
+        except (TypeError, ValueError):
+            return {"message": "daya_listrik_va harus berupa angka (integer)"}, 400
+    else:
+        daya_val = None
+    kondisi_ekonomi["daya_listrik_va"] = daya_val
+    kondisi_ekonomi["foto_token_listrik"] = upload_file_from_storage(bucket, nik, files.get("foto_token_listrik"), "kondisi_ekonomi", "foto_token_listrik")
 
     # build final payload for validation
     final_payload = {
@@ -70,13 +66,11 @@ def create_user_kondisi(payload: dict, files: dict):
     print("[DEBUG] received file keys:", list(files.keys()))
     print("[DEBUG] final_payload for validation:", final_payload)
 
-    # fail-fast: if client sent a file but upload did not produce a URL, return explicit error
     upload_failures = []
-    # check rumah fields
     for fld in ("foto_depan_rumah", "foto_atap", "foto_lantai", "foto_kamar_mandi"):
         if files.get(fld) and not kondisi_rumah.get(fld):
             upload_failures.append(fld)
-    # check ekonomi fields
+    
     for fld in ("foto_slip_gaji", "foto_token_listrik"):
         if files.get(fld) and not kondisi_ekonomi.get(fld):
             upload_failures.append(fld)
@@ -90,7 +84,6 @@ def create_user_kondisi(payload: dict, files: dict):
     try:
         data = user_schema.load(final_payload)
     except ValidationError as ve:
-        # include structured marshmallow messages plus helpful debug context
         error_payload = {
             "message": "Validation error",
             "errors": ve.messages,
@@ -119,6 +112,11 @@ def create_user_kondisi(payload: dict, files: dict):
     }
     return {"message": "Created", "data": result}, 201
 
+def create_user_kondisi_controller():
+    form = request.form.to_dict()
+    files = request.files
+    result, status = create_user_kondisi(form, files)
+    return jsonify(result), status
 
 def get_user_kondisi(nik: int):
     rumah = KondisiRumah.query.filter_by(nik=nik).first()
@@ -133,9 +131,13 @@ def get_user_kondisi(nik: int):
     }
     return result
 
+def get_user_kondisi_controller(nik: int):
+    data = get_user_kondisi(nik)
+    if not data:
+        return jsonify({"message": "Not found"}), 404
+    return jsonify({"data": data}), 200
 
 def update_user_kondisi(nik: int, payload: dict, files: dict):
-    # allow partial update and file replacement
     rumah = KondisiRumah.query.filter_by(nik=nik).first()
     ekonomi = KondisiEkonomi.query.filter_by(nik=nik).first()
 
@@ -146,19 +148,19 @@ def update_user_kondisi(nik: int, payload: dict, files: dict):
 
     # update rumah files
     if files.get("foto_depan_rumah"):
-        url = _upload_and_get_url(nik, files.get("foto_depan_rumah"), bucket, "kondisi_rumah", "foto_depan_rumah")
+        url = upload_file_from_storage(bucket, nik, files.get("foto_depan_rumah"), "kondisi_rumah", "foto_depan_rumah")
         if rumah:
             rumah.foto_depan_rumah = url
     if files.get("foto_atap"):
-        url = _upload_and_get_url(nik, files.get("foto_atap"), bucket, "kondisi_rumah", "foto_atap")
+        url = upload_file_from_storage(bucket, nik, files.get("foto_atap"), "kondisi_rumah", "foto_atap")
         if rumah:
             rumah.foto_atap = url
     if files.get("foto_lantai"):
-        url = _upload_and_get_url(nik, files.get("foto_lantai"), bucket, "kondisi_rumah", "foto_lantai")
+        url = upload_file_from_storage(bucket, nik, files.get("foto_lantai"), "kondisi_rumah", "foto_lantai")
         if rumah:
             rumah.foto_lantai = url
     if files.get("foto_kamar_mandi"):
-        url = _upload_and_get_url(nik, files.get("foto_kamar_mandi"), bucket, "kondisi_rumah", "foto_kamar_mandi")
+        url = upload_file_from_storage(bucket, nik, files.get("foto_kamar_mandi"), "kondisi_rumah", "foto_kamar_mandi")
         if rumah:
             rumah.foto_kamar_mandi = url
 
@@ -167,14 +169,14 @@ def update_user_kondisi(nik: int, payload: dict, files: dict):
         if ekonomi:
             ekonomi.nominal_slip_gaji = int(payload.get("nominal_slip_gaji"))
     if files.get("foto_slip_gaji"):
-        url = _upload_and_get_url(nik, files.get("foto_slip_gaji"), bucket, "kondisi_ekonomi", "foto_slip_gaji")
+        url = upload_file_from_storage(bucket, nik, files.get("foto_slip_gaji"), "kondisi_ekonomi", "foto_slip_gaji")
         if ekonomi:
             ekonomi.foto_slip_gaji = url
     if payload.get("daya_listrik_va"):
         if ekonomi:
             ekonomi.daya_listrik_va = int(payload.get("daya_listrik_va"))
     if files.get("foto_token_listrik"):
-        url = _upload_and_get_url(nik, files.get("foto_token_listrik"), bucket, "kondisi_ekonomi", "foto_token_listrik")
+        url = upload_file_from_storage(bucket, nik, files.get("foto_token_listrik"), "kondisi_ekonomi", "foto_token_listrik")
         if ekonomi:
             ekonomi.foto_token_listrik = url
 
@@ -182,3 +184,9 @@ def update_user_kondisi(nik: int, payload: dict, files: dict):
 
     updated = get_user_kondisi(nik)
     return {"message": "Updated", "data": updated}, 200
+
+def update_user_kondisi_controller(nik: int):
+    form = request.form.to_dict()
+    files = request.files
+    result, status = update_user_kondisi(nik, form, files)
+    return jsonify(result), status
