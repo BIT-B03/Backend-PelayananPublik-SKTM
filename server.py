@@ -21,14 +21,13 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     with app.app_context():
         import models  
         from routes.authRoutes import auth_bp
+        from routes.userRoutes import user_bp
+        from routes.adminRoutes import admin_bp
+        
         app.register_blueprint(auth_bp)
-        # register userKondisiEkonomi blueprint
-        try:
-            from routes.userKondisiEkonomiRoutes import user_kondisi_bp
-            app.register_blueprint(user_kondisi_bp)
-        except Exception:
-            # avoid breaking app if route import fails
-            print("userKondisiEkonomi routes not registered")
+        app.register_blueprint(user_bp, url_prefix='/api/user')
+        app.register_blueprint(admin_bp, url_prefix='/api/admin')
+        
         try:
             db.session.execute(text("SELECT 1 "))
             print("Database Connected")
