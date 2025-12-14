@@ -237,3 +237,30 @@ def download_public_url(bucket: str, path: str):
     if isinstance(pub, dict):
         return pub.get("publicURL") or pub.get("public_url")
     return getattr(pub, "publicURL", None) or getattr(pub, "public_url", None)
+
+
+def upload_file_from_storage(bucket: str, nik: int, file_storage, dest_folder: str, field_name: str):
+    """Helper to upload a Flask/Werkzeug FileStorage to Supabase Storage.
+
+    Args:
+        bucket: bucket name
+        nik: identity used as folder prefix
+        file_storage: FileStorage object (has .filename, .read(), .mimetype)
+        dest_folder: folder under nik (e.g. 'kk' or 'ktp')
+        field_name: fallback name when filename missing
+
+    Returns:
+        public or signed URL string, or None on failure
+    """
+    if not file_storage:
+        return None
+    from werkzeug.utils import secure_filename
+    import os
+    from uuid import uuid4
+
+    filename = secure_filename(getattr(file_storage, 'filename', None) or field_name)
+    base, ext = os.path.splitext(filename)
+    unique_name = f"{base}_{uuid4().hex}{ext}"
+    path = f"{nik}/{dest_folder}/{unique_name}"
+    file_bytes = file_storage.read()
+    return upload_file(bucket, path, file_bytes, content_type=getattr(file_storage, 'mimetype', None))
