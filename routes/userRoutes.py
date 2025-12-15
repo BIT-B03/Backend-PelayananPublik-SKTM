@@ -15,6 +15,11 @@ from controllers.userKondisiEkonomiController import (
     get_user_kondisi_controller,
     update_user_kondisi_controller,
 )
+from controllers.userasetNonfinansialController import (
+    create_user_aset,
+    get_user_aset,
+    update_user_aset,
+)
 
 user_bp = Blueprint('user', __name__)
 
@@ -65,3 +70,22 @@ def get_by_nik(nik: int):
 @jwt_required_custom()
 def update(nik: int):
     return update_user_kondisi_controller(nik)
+
+
+# --- Aset Non-Finansial routes ---
+@user_bp.route('/asetNonFinansial', methods=['POST'])
+@jwt_required_custom()
+def create_aset():
+    return create_user_aset()
+
+
+@user_bp.route('/asetNonFinansial/<int:nik>', methods=['GET'])
+@jwt_required_custom()
+def get_aset(nik: int):
+    return get_user_aset(nik)
+
+
+@user_bp.route('/asetNonFinansial/<int:nik>', methods=['PUT'])
+@jwt_required_custom()
+def update_aset(nik: int):
+    return update_user_aset(nik)
