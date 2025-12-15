@@ -5,7 +5,7 @@ from extension import db
 from models.ktpModel import KTP
 from schema.userKtpSchema import ktp_schema, ktp_create_schema
 from marshmallow import ValidationError
-from utils.supabase_client import upload_file_from_storage
+from utils.supabase_client import upload_file_from_storage, delete_file_by_url
 import os
 
 # [CREATE] POST KTP
@@ -96,10 +96,22 @@ def update_ktp_controller(nik: int):
 				setattr(ktp, field, data[field])
 
 		if files.get('foto_ktp'):
+			# remove previous file if exists to save storage
+			if ktp.foto_ktp:
+				try:
+					delete_file_by_url(bucket, ktp.foto_ktp)
+				except Exception:
+					pass
 			url = upload_file_from_storage(bucket, nik_from_token, files.get('foto_ktp'), 'ktp', 'foto_ktp')
 			if url:
 				ktp.foto_ktp = url
 		if files.get('foto_surat_pengantar_rt_rw'):
+			# remove previous file if exists to save storage
+			if ktp.foto_surat_pengantar_rt_rw:
+				try:
+					delete_file_by_url(bucket, ktp.foto_surat_pengantar_rt_rw)
+				except Exception:
+					pass
 			url = upload_file_from_storage(bucket, nik_from_token, files.get('foto_surat_pengantar_rt_rw'), 'ktp', 'foto_surat_pengantar_rt_rw')
 			if url:
 				ktp.foto_surat_pengantar_rt_rw = url
