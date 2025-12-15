@@ -23,10 +23,12 @@ def create_app(config_class: type[Config] = Config) -> Flask:
         from routes.authRoutes import auth_bp
         from routes.userRoutes import user_bp
         from routes.adminRoutes import admin_bp
+        from routes.supabaseSignedRoutes import supabase_bp
         
         app.register_blueprint(auth_bp)
         app.register_blueprint(user_bp, url_prefix='/api/user')
         app.register_blueprint(admin_bp, url_prefix='/api/admin')
+        app.register_blueprint(supabase_bp, url_prefix='/api')
         
         try:
             db.session.execute(text("SELECT 1 "))
