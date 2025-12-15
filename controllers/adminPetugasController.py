@@ -21,6 +21,7 @@ def create_petugas_controller():
         except ValidationError as ve:
             return jsonify({"message": "Validation error", "errors": ve.messages}), 400
 
+        nip = validated.get('nip')
         nik = validated.get('nik')
         password = validated.get('password')
         role = validated.get('role')
@@ -30,9 +31,12 @@ def create_petugas_controller():
         if not ms:
             return jsonify({"message": "masyarakat not found for provided nik"}), 404
 
-        # Cek apakah sudah ada petugas untuk nik ini
-        existing = Petugas.query.filter_by(nik=nik).first()
-        if existing:
+        # Cek konflik: nip dan nik
+        existing_by_nip = Petugas.query.get(nip)
+        if existing_by_nip:
+            return jsonify({"message": "nip already exists"}), 409
+        existing_by_nik = Petugas.query.filter_by(nik=nik).first()
+        if existing_by_nik:
             return jsonify({"message": "petugas already exists for this nik"}), 409
 
         # Jika tidak ada password diberikan, buat password default (contoh: 6 digit terakhir nomor_hp atau nik)
@@ -42,7 +46,7 @@ def create_petugas_controller():
 
         hashed = generate_password_hash(password)
 
-        new = Petugas(nik=nik, password=hashed, role=role or 'petugas')
+        new = Petugas(nip=nip, nik=nik, password=hashed, role=role or 'petugas')
         db.session.add(new)
         db.session.commit()
 

@@ -26,63 +26,71 @@ from controllers.adminKondisiEkonomiController import (
     delete_kondisi_admin,
 )
 from controllers.adminPetugasController import create_petugas_controller
+from controllers.adminAuthController import petugas_login_controller
 
 admin_bp = Blueprint('admin', __name__)
 
 # KK routes
-@jwt_required_custom()
 @admin_bp.route('/kk', methods=['GET'])
+@jwt_required_custom()
+@role_required('petugas')
 def admin_list_kk():
     return get_all_kartu_keluarga_admin_controller()
 
-@jwt_required_custom()
 @admin_bp.route('/kk/<int:nik>', methods=['GET'])
+@jwt_required_custom()
+@role_required('petugas')
 def admin_get_kk(nik):
     return get_kartu_keluarga_detail_admin_controller(nik)
 
+@admin_bp.route('/kk/<int:nik>', methods=['PUT'])
 @jwt_required_custom()
 @role_required('petugas')
-@admin_bp.route('/kk/<int:nik>', methods=['PUT'])
 def admin_update_kk_status(nik):
     return update_kartu_keluarga_status_controller(nik)
 
-@jwt_required_custom()
 @admin_bp.route('/kk/<int:nik>', methods=['DELETE'])
+@jwt_required_custom()
+@role_required('petugas')
 def admin_delete_kk(nik):
     return delete_kartu_keluarga_controller(nik)
 
+@admin_bp.route('/kk/<int:nik>/human-capital', methods=['PUT'])
 @jwt_required_custom()
 @role_required('petugas')
-@admin_bp.route('/kk/<int:nik>/human-capital', methods=['PUT'])
 def admin_update_hc_status(nik):
     return update_human_capital_status_controller(nik)
 
 # KTP routes
-@jwt_required_custom()
 @admin_bp.route('/ktp', methods=['GET'])
+@jwt_required_custom()
+@role_required('petugas')
 def admin_list_ktp():
     return get_all_ktp_admin_controller()
 
-@jwt_required_custom()
 @admin_bp.route('/ktp/<int:nik>', methods=['GET'])
+@jwt_required_custom()
+@role_required('petugas')
 def admin_get_ktp(nik):
     return get_ktp_detail_admin_controller(nik)
 
+@admin_bp.route('/ktp/<int:nik>', methods=['PUT'])
 @jwt_required_custom()
 @role_required('petugas')
-@admin_bp.route('/ktp/<int:nik>', methods=['PUT'])
 def admin_update_ktp_status(nik):
     return update_ktp_status_controller(nik)
 
-@jwt_required_custom()
 @admin_bp.route('/ktp/<int:nik>', methods=['DELETE'])
+@jwt_required_custom()
+@role_required('petugas')
 def admin_delete_ktp(nik):
     return delete_ktp_controller(nik)
 
 
 # Aset Non-Finansial routes
-@jwt_required_custom()
 @admin_bp.route('/asetNonFinansial', methods=['GET'])
+@jwt_required_custom()
+@role_required('petugas')
 def admin_list_aset():
     from flask import request
     page = int(request.args.get('page', 1))
@@ -90,28 +98,31 @@ def admin_list_aset():
     return list_asets(page=page, per_page=per_page)
 
 
-@jwt_required_custom()
 @admin_bp.route('/asetNonFinansial/<int:nik>', methods=['GET'])
+@jwt_required_custom()
+@role_required('petugas')
 def admin_get_aset(nik: int):
     return get_aset_by_nik(nik)
 
 
+@admin_bp.route('/asetNonFinansial/<int:nik>/status', methods=['PUT', 'PATCH'])
 @jwt_required_custom()
 @role_required('petugas')
-@admin_bp.route('/asetNonFinansial/<int:nik>/status', methods=['PUT', 'PATCH'])
 def admin_update_aset_status(nik: int):
     return update_aset_admin(nik)
 
 
-@jwt_required_custom()
 @admin_bp.route('/asetNonFinansial/<int:nik>', methods=['DELETE'])
+@jwt_required_custom()
+@role_required('petugas')
 def admin_delete_aset(nik: int):
     return delete_aset_admin(nik)
 
 
 # Kondisi Ekonomi / Rumah (admin)
-@jwt_required_custom()
 @admin_bp.route('/kondisiEkonomi', methods=['GET'])
+@jwt_required_custom()
+@role_required('petugas')
 def admin_list_kondisi():
     from flask import request
     page = int(request.args.get('page', 1))
@@ -119,26 +130,35 @@ def admin_list_kondisi():
     return list_kondisi_admin(page=page, per_page=per_page)
 
 
-@jwt_required_custom()
 @admin_bp.route('/kondisiEkonomi/<int:nik>', methods=['GET'])
+@jwt_required_custom()
+@role_required('petugas')
 def admin_get_kondisi(nik: int):
     return get_kondisi_admin(nik)
 
 
+@admin_bp.route('/kondisiEkonomi/<int:nik>', methods=['PUT'])
 @jwt_required_custom()
 @role_required('petugas')
-@admin_bp.route('/kondisiEkonomi/<int:nik>', methods=['PUT'])
 def admin_update_kondisi(nik: int):
     return update_kondisi_admin(nik)
 
-@jwt_required_custom()
 @admin_bp.route('/kondisiEkonomi/<int:nik>', methods=['DELETE'])
+@jwt_required_custom()
+@role_required('petugas')
 def admin_delete_kondisi(nik: int):
     return delete_kondisi_admin(nik)
 
 
 
-@jwt_required_custom()
 @admin_bp.route('/petugas', methods=['POST'])
+@jwt_required_custom()
+@role_required('petugas')
 def admin_create_petugas():
     return create_petugas_controller()
+
+
+# Petugas auth (login)
+@admin_bp.route('/petugas/login', methods=['POST'])
+def admin_petugas_login():
+    return petugas_login_controller()
