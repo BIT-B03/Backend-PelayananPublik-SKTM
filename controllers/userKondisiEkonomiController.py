@@ -7,6 +7,7 @@ from utils.supabase_client import upload_file_from_storage
 import os
 from marshmallow import ValidationError
 from flask import request, jsonify
+from flask_jwt_extended import get_jwt_identity
 
 def create_user_kondisi(payload: dict, files: dict):
     try:
@@ -113,8 +114,16 @@ def create_user_kondisi(payload: dict, files: dict):
     return {"message": "Created", "data": result}, 201
 
 def create_user_kondisi_controller():
+    # Use NIK from token so frontend doesn't need to include it
     form = request.form.to_dict()
     files = request.files
+    try:
+        identity = get_jwt_identity()
+        nik_from_token = int(identity)
+        form["nik"] = str(nik_from_token)
+    except Exception:
+        # if token invalid, proceed; create_user_kondisi will validate presence
+        pass
     result, status = create_user_kondisi(form, files)
     return jsonify(result), status
 
@@ -188,5 +197,26 @@ def update_user_kondisi(nik: int, payload: dict, files: dict):
 def update_user_kondisi_controller(nik: int):
     form = request.form.to_dict()
     files = request.files
+    result, status = update_user_kondisi(nik, form, files)
+    return jsonify(result), status
+
+
+def update_user_kondisi_self_controller():
+    # wrapper that uses NIK from JWT identity so frontend doesn't need to provide nik in path
+    form = request.form.to_dict()
+    files = request.files
+    try:
+        identity = get_jwt_identity()
+        nik_from_token = int(identity)
+        form["nik"] = str(nik_from_token)
+    except Exception:
+        return jsonify({"message": "Missing or invalid identity token"}), 401
+
+    # ensure nik parsed
+    try:
+        nik = int(form.get("nik"))
+    except Exception:
+        return jsonify({"message": "Missing or invalid nik"}), 400
+
     result, status = update_user_kondisi(nik, form, files)
     return jsonify(result), status

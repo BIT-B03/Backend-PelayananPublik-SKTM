@@ -3,6 +3,7 @@ from marshmallow import fields, validate
 # Schemas for Admin Petugas
 
 class CreatePetugasSchema(ma.Schema):
+    nip = fields.Integer(required=True)
     nik = fields.Integer(required=True)
     password = fields.String(required=False, validate=validate.Length(min=6, max=255))
     role = fields.String(required=False, validate=validate.OneOf(["petugas", "admin"]))

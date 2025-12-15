@@ -1,4 +1,5 @@
 from flask import request, jsonify
+from flask_jwt_extended import get_jwt_identity
 from extension import db
 from models.asetnonfinansialModel import AsetNonFinancial
 from models.detailkendaraanModel import DetailKendaraan
@@ -18,10 +19,15 @@ def create_user_aset():
         return jsonify({"message": "Method Not Allowed"}), 405
 
     payload = request.get_json() or {}
+    # Prefer NIK from JWT identity so frontend doesn't need to provide NIK
     try:
-        nik = int(payload.get("nik"))
+        identity = get_jwt_identity()
+        nik = int(identity)
     except Exception:
-        return jsonify({"message": "Missing or invalid nik"}), 400
+        try:
+            nik = int(payload.get("nik"))
+        except Exception:
+            return jsonify({"message": "Missing or invalid nik"}), 400
 
     # check existing
     if AsetNonFinancial.query.filter_by(nik=nik).first():
@@ -101,3 +107,15 @@ def update_user_aset(nik: int):
     db.session.commit()
 
     return jsonify({"message": "Updated", "data": user_schema.dump(aset)}), 200
+
+
+def update_user_aset_self_controller():
+    # wrapper that uses NIK from JWT identity so frontend doesn't need to provide nik in path
+    try:
+        identity = get_jwt_identity()
+        nik = int(identity)
+    except Exception:
+        return jsonify({"message": "Missing or invalid identity token"}), 401
+
+    # call existing update handler which reads request context
+    return update_user_aset(nik)

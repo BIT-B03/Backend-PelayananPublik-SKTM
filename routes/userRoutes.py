@@ -20,6 +20,12 @@ from controllers.userasetNonfinansialController import (
     get_user_aset,
     update_user_aset,
 )
+from controllers.userProfileController import (
+    get_profile_controller,
+    update_profile_controller,
+    get_my_profile_controller,
+    update_my_profile_controller,
+)
 
 user_bp = Blueprint('user', __name__)
 
@@ -72,6 +78,13 @@ def update(nik: int):
     return update_user_kondisi_controller(nik)
 
 
+@user_bp.route("/kondisiEkonomi", methods=["PUT"])
+@jwt_required_custom()
+def update_kondisi_self():
+    from controllers.userKondisiEkonomiController import update_user_kondisi_self_controller
+    return update_user_kondisi_self_controller()
+
+
 # --- Aset Non-Finansial routes ---
 @user_bp.route('/asetNonFinansial', methods=['POST'])
 @jwt_required_custom()
@@ -89,3 +102,35 @@ def get_aset(nik: int):
 @jwt_required_custom()
 def update_aset(nik: int):
     return update_user_aset(nik)
+
+
+@user_bp.route('/asetNonFinansial', methods=['PUT'])
+@jwt_required_custom()
+def update_aset_self():
+    from controllers.userasetNonfinansialController import update_user_aset_self_controller
+    return update_user_aset_self_controller()
+
+
+# --- Profil routes ---
+@user_bp.route('/profil/<int:nik>', methods=['GET'])
+@jwt_required_custom()
+def get_profil(nik: int):
+    return get_profile_controller(nik)
+
+
+@user_bp.route('/profil/<int:nik>', methods=['PUT'])
+@jwt_required_custom()
+def update_profil(nik: int):
+    return update_profile_controller(nik)
+
+
+@user_bp.route('/profil', methods=['GET'])
+@jwt_required_custom()
+def get_my_profil():
+    return get_my_profile_controller()
+
+
+@user_bp.route('/profil', methods=['PUT'])
+@jwt_required_custom()
+def update_my_profil():
+    return update_my_profile_controller()
