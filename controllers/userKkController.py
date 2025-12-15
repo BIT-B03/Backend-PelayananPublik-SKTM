@@ -6,7 +6,7 @@ from models.kartukeluargaModel import KartuKeluarga
 from models.humancapitalModel import HumanCapital
 from schema.userKkSchema import kk_schema, kk_create_schema, hc_schema
 from marshmallow import ValidationError
-from utils.supabase_client import upload_file_from_storage
+from utils.supabase_client import upload_file_from_storage, delete_file_by_url
 import os
 
 # [CREATE] POST KK
@@ -133,9 +133,15 @@ def update_kartu_keluarga_controller(nik: int):
 					setattr(kk, field, data[field])
 
 		if files.get('foto_kk'):
-			url = upload_file_from_storage(bucket, nik_from_token, files.get('foto_kk'), 'kk', 'foto_kk')
-			if url:
-				kk.foto_kk = url
+				# delete previous foto_kk if present to save storage
+				if kk.foto_kk:
+					try:
+						delete_file_by_url(bucket, kk.foto_kk)
+					except Exception:
+						pass
+				url = upload_file_from_storage(bucket, nik_from_token, files.get('foto_kk'), 'kk', 'foto_kk')
+				if url:
+					kk.foto_kk = url
 
 		hc = HumanCapital.query.filter_by(nik=kk.nik).first()
 		if hc:

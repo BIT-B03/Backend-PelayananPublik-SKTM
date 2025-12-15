@@ -239,6 +239,61 @@ def download_public_url(bucket: str, path: str):
     return getattr(pub, "publicURL", None) or getattr(pub, "public_url", None)
 
 
+def delete_file(bucket: str, path: str) -> bool:
+    """Delete a file from Supabase storage. Returns True on success, False otherwise."""
+    client = _ensure_client()
+    storage = client.storage.from_(bucket)
+    try:
+        res = storage.remove([path])    
+        return True
+    except Exception as e:
+        print(f"[DEBUG supabase] delete_file failed for bucket={bucket} path={path}: {e}")
+        return False
+
+
+def delete_file_by_url(bucket: str, url: str) -> bool:
+    """Attempt to extract storage path from a public/signed URL and delete the file.
+
+    Handles common Supabase public URL formats like:
+      https://<project>.supabase.co/storage/v1/object/public/<bucket>/<path>
+    or direct public URLs that include '/<bucket>/' in the path.
+    """
+    if not url:
+        return False
+    try:
+        # try to find '/<bucket>/' and take the rest as path
+        marker = f"/{bucket}/"
+        if marker in url:
+            path = url.split(marker, 1)[1]
+            # strip query params
+            path = path.split('?', 1)[0]
+            return delete_file(bucket, path)
+
+        # Try common storage API path
+        parts = url.split('/storage/v1/object/public/')
+        if len(parts) == 2:
+            rest = parts[1]
+            if rest.startswith(bucket + '/'):
+                path = rest[len(bucket) + 1 :].split('?', 1)[0]
+                return delete_file(bucket, path)
+
+        # Fallback: last path segment
+        from urllib.parse import urlparse
+        parsed = urlparse(url)
+        p = parsed.path.lstrip('/')
+        # try to remove bucket prefix if present
+        if p.startswith(bucket + '/'):
+            path = p[len(bucket) + 1 :]
+        else:
+            # use entire path as last resort
+            path = p
+        path = path.split('?', 1)[0]
+        return delete_file(bucket, path)
+    except Exception as e:
+        print(f"[DEBUG supabase] delete_file_by_url failed for url={url}: {e}")
+        return False
+
+
 def upload_file_from_storage(bucket: str, nik: int, file_storage, dest_folder: str, field_name: str):
     """Helper to upload a Flask/Werkzeug FileStorage to Supabase Storage.
 
