@@ -1,3 +1,4 @@
+from flask import request, jsonify
 from extension import db
 from models.asetnonfinansialModel import AsetNonFinancial
 from models.detailkendaraanModel import DetailKendaraan
@@ -12,22 +13,26 @@ user_schema = UserAsetNonFinansialSchema()
 detail_schema = DetailKendaraanSchema(many=True)
 
 
-def create_user_aset(payload: dict):
+def create_user_aset():
+    if request.method != 'POST':
+        return jsonify({"message": "Method Not Allowed"}), 405
+
+    payload = request.get_json() or {}
     try:
         nik = int(payload.get("nik"))
     except Exception:
-        return {"message": "Missing or invalid nik"}, 400
+        return jsonify({"message": "Missing or invalid nik"}), 400
 
     # check existing
     if AsetNonFinancial.query.filter_by(nik=nik).first():
-        return {"message": "Data for this nik already exists"}, 400
+        return jsonify({"message": "Data for this nik already exists"}), 400
 
     try:
         data = user_schema.load(payload)
     except ValidationError as ve:
-        return {"message": "Validation error", "errors": ve.messages}, 400
+        return jsonify({"message": "Validation error", "errors": ve.messages}), 400
     except Exception as e:
-        return {"message": "Validation error", "errors": str(e)}, 400
+        return jsonify({"message": "Validation error", "errors": str(e)}), 400
 
     aset = AsetNonFinancial(nik=nik, total_kendaraan=data["total_kendaraan"], status=data.get("status", "P"))
 
@@ -43,60 +48,37 @@ def create_user_aset(payload: dict):
     db.session.add(aset)
     db.session.commit()
 
-    result = {
-        "nik": nik,
-        "total_kendaraan": aset.total_kendaraan,
-        "status": aset.status,
-        "detail_kendaraan": [
-            {
-                "id_detail_kendaraan": d.id_detail_kendaraan,
-                "jenis_kendaraan": d.jenis_kendaraan,
-                "tipe_kendaraan": d.tipe_kendaraan,
-                "tahun_pembuatan": int(d.tahun_pembuatan) if d.tahun_pembuatan is not None else None,
-                "status": d.status,
-            }
-            for d in aset.detail_kendaraan
-        ],
-    }
-
-    return {"message": "Created", "data": result}, 201
+    return jsonify({"message": "Created", "data": user_schema.dump(aset)}), 201
 
 
 def get_user_aset(nik: int):
+    if request.method != 'GET':
+        return jsonify({"message": "Method Not Allowed"}), 405
+
     aset = AsetNonFinancial.query.filter_by(nik=nik).first()
     if not aset:
-        return {"message": "Not found"}, 404
+        return jsonify({"message": "Not found"}), 404
 
-    result = {
-        "nik": nik,
-        "total_kendaraan": aset.total_kendaraan,
-        "status": aset.status,
-        "detail_kendaraan": [
-            {
-                "id_detail_kendaraan": d.id_detail_kendaraan,
-                "jenis_kendaraan": d.jenis_kendaraan,
-                "tipe_kendaraan": d.tipe_kendaraan,
-                "tahun_pembuatan": int(d.tahun_pembuatan) if d.tahun_pembuatan is not None else None,
-                "status": d.status,
-            }
-            for d in aset.detail_kendaraan
-        ],
-    }
-    return {"data": result}, 200
+    return jsonify({"data": user_schema.dump(aset)}), 200
 
 
-def update_user_aset(nik: int, payload: dict):
+def update_user_aset(nik: int):
+    if request.method != 'PUT':
+        return jsonify({"message": "Method Not Allowed"}), 405
+
     aset = AsetNonFinancial.query.filter_by(nik=nik).first()
     if not aset:
-        return {"message": "Not found"}, 404
+        return jsonify({"message": "Not found"}), 404
+
+    payload = request.get_json() or {}
 
     # allow partial updates
     try:
         data = user_schema.load(payload, partial=True)
     except ValidationError as ve:
-        return {"message": "Validation error", "errors": ve.messages}, 400
+        return jsonify({"message": "Validation error", "errors": ve.messages}), 400
     except Exception as e:
-        return {"message": "Validation error", "errors": str(e)}, 400
+        return jsonify({"message": "Validation error", "errors": str(e)}), 400
 
     if "total_kendaraan" in data:
         aset.total_kendaraan = data["total_kendaraan"]
@@ -118,5 +100,4 @@ def update_user_aset(nik: int, payload: dict):
 
     db.session.commit()
 
-    updated = get_user_aset(nik)
-    return {"message": "Updated", "data": updated}, 200
+    return jsonify({"message": "Updated", "data": user_schema.dump(aset)}), 200

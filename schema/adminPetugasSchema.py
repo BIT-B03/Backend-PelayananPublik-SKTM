@@ -1,6 +1,6 @@
 from extension import ma
 from marshmallow import fields, validate
-
+# Schemas for Admin Petugas
 
 class CreatePetugasSchema(ma.Schema):
     nik = fields.Integer(required=True)

@@ -8,14 +8,16 @@ from schema.adminPetugasSchema import create_petugas_schema, petugas_schema
 from marshmallow import ValidationError
 
 
-def create_petugas_controller(payload: dict):
+def create_petugas_controller():
     try:
         if request.method != 'POST':
             return jsonify({"message": "Method Not Allowed"}), 405
 
+        payload = request.get_json() or {}
+
         # validate payload
         try:
-            validated = create_petugas_schema.load(payload or {})
+            validated = create_petugas_schema.load(payload)
         except ValidationError as ve:
             return jsonify({"message": "Validation error", "errors": ve.messages}), 400
 

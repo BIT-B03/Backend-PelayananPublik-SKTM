@@ -1,4 +1,4 @@
-from marshmallow import Schema, fields
+from marshmallow import Schema, fields, validate
 
 
 class AdminKondisiRumahSchema(Schema):
@@ -23,3 +23,15 @@ class AdminKondisiUpdateSchema(Schema):
 admin_rumah_schema = AdminKondisiRumahSchema()
 admin_ekonomi_schema = AdminKondisiEkonomiSchema()
 admin_update_schema = AdminKondisiUpdateSchema()
+
+
+class AdminStatusSchema(Schema):
+    status = fields.String(required=True, validate=validate.OneOf(["B", "T", "P"]))
+
+
+class AdminKondisiStatusUpdateSchema(Schema):
+    kondisi_rumah_status = fields.String(allow_none=True, validate=validate.OneOf(["B", "T", "P"]))
+    kondisi_ekonomi_status = fields.String(allow_none=True, validate=validate.OneOf(["B", "T", "P"]))
+
+
+admin_status_update_schema = AdminKondisiStatusUpdateSchema()

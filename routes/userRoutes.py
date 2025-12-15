@@ -76,9 +76,7 @@ def update(nik: int):
 @user_bp.route('/asetNonFinansial', methods=['POST'])
 @jwt_required_custom()
 def create_aset():
-    from flask import request
-    payload = request.get_json() or request.form.to_dict()
-    return create_user_aset(payload)
+    return create_user_aset()
 
 
 @user_bp.route('/asetNonFinansial/<int:nik>', methods=['GET'])
@@ -90,6 +88,4 @@ def get_aset(nik: int):
 @user_bp.route('/asetNonFinansial/<int:nik>', methods=['PUT'])
 @jwt_required_custom()
 def update_aset(nik: int):
-    from flask import request
-    payload = request.get_json() or request.form.to_dict()
-    return update_user_aset(nik, payload)
+    return update_user_aset(nik)

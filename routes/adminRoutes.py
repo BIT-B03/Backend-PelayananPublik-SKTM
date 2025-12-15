@@ -100,9 +100,7 @@ def admin_get_aset(nik: int):
 @role_required('petugas')
 @admin_bp.route('/asetNonFinansial/<int:nik>/status', methods=['PUT', 'PATCH'])
 def admin_update_aset_status(nik: int):
-    from flask import request
-    payload = request.get_json() or request.form.to_dict()
-    return update_aset_admin(nik, payload)
+    return update_aset_admin(nik)
 
 
 @jwt_required_custom()
@@ -131,23 +129,16 @@ def admin_get_kondisi(nik: int):
 @role_required('petugas')
 @admin_bp.route('/kondisiEkonomi/<int:nik>', methods=['PUT'])
 def admin_update_kondisi(nik: int):
-    from flask import request
-    # pass form and files to controller; controller will return jsonify tuple
-    form = request.form.to_dict()
-    files = request.files
-    return update_kondisi_admin(nik, form, files)
+    return update_kondisi_admin(nik)
 
 @jwt_required_custom()
 @admin_bp.route('/kondisiEkonomi/<int:nik>', methods=['DELETE'])
 def admin_delete_kondisi(nik: int):
     return delete_kondisi_admin(nik)
-# TODO: add jwt_required 
-# add logika admin create akun petugas (confirm status)
+
 
 
 @jwt_required_custom()
 @admin_bp.route('/petugas', methods=['POST'])
 def admin_create_petugas():
-    from flask import request
-    payload = request.get_json() or request.form.to_dict()
-    return create_petugas_controller(payload)
+    return create_petugas_controller()
