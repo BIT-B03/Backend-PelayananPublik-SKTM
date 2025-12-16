@@ -8,6 +8,43 @@ import os
 from marshmallow import ValidationError
 from flask import request, jsonify
 from flask_jwt_extended import get_jwt_identity
+import json
+
+import re
+
+
+def _extract_int(value):
+    """Try to extract an integer from a value which may be int, str, list or nested dict.
+    Returns int or None if extraction fails.
+    """
+    if value is None:
+        return None
+    if isinstance(value, dict):
+        for k in ("amount", "nominal", "value", "nominal_slip_gaji", "jumlah"):
+            if k in value:
+                return _extract_int(value.get(k))
+        for v in value.values():
+            res = _extract_int(v)
+            if res is not None:
+                return res
+        return None
+    if isinstance(value, (list, tuple)):
+        for v in value:
+            res = _extract_int(v)
+            if res is not None:
+                return res
+        return None
+    try:
+        if isinstance(value, (int, float)):
+            return int(value)
+        s = str(value).strip()
+        s = s.replace("|", "").replace("\u00a0", "").replace(",", "").replace(" ", "")
+        m = re.search(r"-?\d+(?:\.\d+)?", s)
+        if m:
+            return int(float(m.group(0)))
+    except Exception:
+        pass
+    return None
 
 def create_user_kondisi(payload: dict, files: dict):
     try:
@@ -15,7 +52,6 @@ def create_user_kondisi(payload: dict, files: dict):
     except Exception:
         return {"message": "Missing or invalid nik"}, 400
 
-    # ensure the masyarakat (person) exists before inserting kondisi records
     if not Masyarakat.query.filter_by(nik=nik).first():
         return {"message": "Masyarakat dengan nik tidak ditemukan. Silakan buat data masyarakat terlebih dahulu."}, 404
 
@@ -33,16 +69,24 @@ def create_user_kondisi(payload: dict, files: dict):
     kondisi_rumah["foto_lantai"] = upload_file_from_storage(bucket, nik, files.get("foto_lantai"), "kondisi_rumah", "foto_lantai")
     kondisi_rumah["foto_kamar_mandi"] = upload_file_from_storage(bucket, nik, files.get("foto_kamar_mandi"), "kondisi_rumah", "foto_kamar_mandi")
 
-    # ekonomi photos and fields
-    # validate numeric inputs and return 400 on invalid types (avoid 500 internal error)
     nominal_raw = payload.get("nominal_slip_gaji")
-    if nominal_raw:
-        try:
-            nominal_val = int(nominal_raw)
-        except (TypeError, ValueError):
-            return {"message": "nominal_slip_gaji harus berupa angka (integer)"}, 400
-    else:
-        nominal_val = None
+    if nominal_raw is None:
+        ke = payload.get("kondisi_ekonomi")
+        if ke:
+            if isinstance(ke, str):
+                try:
+                    ke_parsed = json.loads(ke)
+                except Exception:
+                    ke_parsed = None
+            elif isinstance(ke, dict):
+                ke_parsed = ke
+            else:
+                ke_parsed = None
+
+            if isinstance(ke_parsed, dict):
+                nominal_raw = ke_parsed.get("nominal_slip_gaji") or ke_parsed.get("nominal") or ke_parsed.get("amount")
+
+    nominal_val = _extract_int(nominal_raw)
     kondisi_ekonomi["nominal_slip_gaji"] = nominal_val
     kondisi_ekonomi["foto_slip_gaji"] = upload_file_from_storage(bucket, nik, files.get("foto_slip_gaji"), "kondisi_ekonomi", "foto_slip_gaji")
     daya_raw = payload.get("daya_listrik_va")
@@ -56,15 +100,13 @@ def create_user_kondisi(payload: dict, files: dict):
     kondisi_ekonomi["daya_listrik_va"] = daya_val
     kondisi_ekonomi["foto_token_listrik"] = upload_file_from_storage(bucket, nik, files.get("foto_token_listrik"), "kondisi_ekonomi", "foto_token_listrik")
 
-    # build final payload for validation
     final_payload = {
         "nik": nik,
         "kondisi_rumah": kondisi_rumah,
         "kondisi_ekonomi": kondisi_ekonomi,
     }
 
-    # debug info: which files were received and what URLs we generated
-    print("[DEBUG] received file keys:", list(files.keys()))
+    print("[DEBUG] received file keys:", list(files.keys())) 
     print("[DEBUG] final_payload for validation:", final_payload)
 
     upload_failures = []
@@ -81,7 +123,6 @@ def create_user_kondisi(payload: dict, files: dict):
         print("[DEBUG] upload failures:", upload_failures)
         return msg, 502
 
-    # validate
     try:
         data = user_schema.load(final_payload)
     except ValidationError as ve:
@@ -114,7 +155,6 @@ def create_user_kondisi(payload: dict, files: dict):
     return {"message": "Created", "data": result}, 201
 
 def create_user_kondisi_controller():
-    # Use NIK from token so frontend doesn't need to include it
     form = request.form.to_dict()
     files = request.files
     try:
@@ -122,7 +162,6 @@ def create_user_kondisi_controller():
         nik_from_token = int(identity)
         form["nik"] = str(nik_from_token)
     except Exception:
-        # if token invalid, proceed; create_user_kondisi will validate presence
         pass
     result, status = create_user_kondisi(form, files)
     return jsonify(result), status
@@ -195,9 +234,27 @@ def update_user_kondisi(nik: int, payload: dict, files: dict):
             rumah.foto_kamar_mandi = url
 
     # update ekonomi fields and files
-    if payload.get("nominal_slip_gaji"):
-        if ekonomi:
-            ekonomi.nominal_slip_gaji = int(payload.get("nominal_slip_gaji"))
+    # try top-level first
+    nom_raw = payload.get("nominal_slip_gaji")
+    if nom_raw is None:
+        ke = payload.get("kondisi_ekonomi")
+        if ke:
+            if isinstance(ke, str):
+                try:
+                    ke_parsed = json.loads(ke)
+                except Exception:
+                    ke_parsed = None
+            elif isinstance(ke, dict):
+                ke_parsed = ke
+            else:
+                ke_parsed = None
+
+            if isinstance(ke_parsed, dict):
+                nom_raw = ke_parsed.get("nominal_slip_gaji") or ke_parsed.get("nominal") or ke_parsed.get("amount")
+
+    nom = _extract_int(nom_raw)
+    if nom is not None and ekonomi:
+        ekonomi.nominal_slip_gaji = nom
     if files.get("foto_slip_gaji"):
         if ekonomi and getattr(ekonomi, 'foto_slip_gaji', None):
             try:
