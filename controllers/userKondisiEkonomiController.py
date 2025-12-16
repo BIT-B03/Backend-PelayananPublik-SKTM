@@ -3,7 +3,7 @@ from models.kondisirumahModel import KondisiRumah
 from models.kondisiekonomiModel import KondisiEkonomi
 from models.masyarakatModel import Masyarakat
 from schema.userKondisiEkonomiSchema import user_schema, rumah_schema, ekonomi_schema
-from utils.supabase_client import upload_file_from_storage
+from utils.supabase_client import upload_file_from_storage, delete_file_by_url
 import os
 from marshmallow import ValidationError
 from flask import request, jsonify
@@ -157,18 +157,39 @@ def update_user_kondisi(nik: int, payload: dict, files: dict):
 
     # update rumah files
     if files.get("foto_depan_rumah"):
+        # delete previous file if present to save storage
+        if rumah and getattr(rumah, 'foto_depan_rumah', None):
+            try:
+                delete_file_by_url(bucket, rumah.foto_depan_rumah)
+            except Exception:
+                pass
         url = upload_file_from_storage(bucket, nik, files.get("foto_depan_rumah"), "kondisi_rumah", "foto_depan_rumah")
         if rumah:
             rumah.foto_depan_rumah = url
     if files.get("foto_atap"):
+        if rumah and getattr(rumah, 'foto_atap', None):
+            try:
+                delete_file_by_url(bucket, rumah.foto_atap)
+            except Exception:
+                pass
         url = upload_file_from_storage(bucket, nik, files.get("foto_atap"), "kondisi_rumah", "foto_atap")
         if rumah:
             rumah.foto_atap = url
     if files.get("foto_lantai"):
+        if rumah and getattr(rumah, 'foto_lantai', None):
+            try:
+                delete_file_by_url(bucket, rumah.foto_lantai)
+            except Exception:
+                pass
         url = upload_file_from_storage(bucket, nik, files.get("foto_lantai"), "kondisi_rumah", "foto_lantai")
         if rumah:
             rumah.foto_lantai = url
     if files.get("foto_kamar_mandi"):
+        if rumah and getattr(rumah, 'foto_kamar_mandi', None):
+            try:
+                delete_file_by_url(bucket, rumah.foto_kamar_mandi)
+            except Exception:
+                pass
         url = upload_file_from_storage(bucket, nik, files.get("foto_kamar_mandi"), "kondisi_rumah", "foto_kamar_mandi")
         if rumah:
             rumah.foto_kamar_mandi = url
@@ -178,6 +199,11 @@ def update_user_kondisi(nik: int, payload: dict, files: dict):
         if ekonomi:
             ekonomi.nominal_slip_gaji = int(payload.get("nominal_slip_gaji"))
     if files.get("foto_slip_gaji"):
+        if ekonomi and getattr(ekonomi, 'foto_slip_gaji', None):
+            try:
+                delete_file_by_url(bucket, ekonomi.foto_slip_gaji)
+            except Exception:
+                pass
         url = upload_file_from_storage(bucket, nik, files.get("foto_slip_gaji"), "kondisi_ekonomi", "foto_slip_gaji")
         if ekonomi:
             ekonomi.foto_slip_gaji = url
@@ -185,6 +211,11 @@ def update_user_kondisi(nik: int, payload: dict, files: dict):
         if ekonomi:
             ekonomi.daya_listrik_va = int(payload.get("daya_listrik_va"))
     if files.get("foto_token_listrik"):
+        if ekonomi and getattr(ekonomi, 'foto_token_listrik', None):
+            try:
+                delete_file_by_url(bucket, ekonomi.foto_token_listrik)
+            except Exception:
+                pass
         url = upload_file_from_storage(bucket, nik, files.get("foto_token_listrik"), "kondisi_ekonomi", "foto_token_listrik")
         if ekonomi:
             ekonomi.foto_token_listrik = url
