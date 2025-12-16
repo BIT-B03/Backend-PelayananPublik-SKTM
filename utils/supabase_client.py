@@ -298,6 +298,80 @@ def delete_file_by_url(bucket: str, url: str) -> bool:
         return False
 
 
+def create_signed_url(bucket: str, path: str, expires: int = 3600, service_key: str | None = None) -> str | None:
+    """Create a signed URL (REST) for an existing object with a custom expiry (seconds).
+
+    Returns the signed URL string or None on failure.
+    """
+    if not path or not bucket:
+        return None
+    service_key = service_key or os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or SUPABASE_KEY
+    if not SUPABASE_URL or not service_key:
+        return None
+
+    try:
+        encoded = quote(path, safe='/')
+        sign_url = f"{SUPABASE_URL}/storage/v1/object/sign/{bucket}/{encoded}"
+        headers = {"Authorization": f"Bearer {service_key}", "apikey": service_key, "Content-Type": "application/json"}
+        payload = {"expiresIn": int(expires)}
+        r = requests.post(sign_url, headers=headers, json=payload, timeout=10)
+        r.raise_for_status()
+        data = r.json()
+        for key in ("signedURL", "signed_url", "signedUrl", "url"):
+            if key in data and isinstance(data[key], str):
+                return data[key]
+        for v in data.values():
+            if isinstance(v, str) and v.startswith('http'):
+                return v
+    except Exception as e:
+        print(f"[DEBUG supabase] create_signed_url failed for bucket={bucket} path={path}: {e}")
+    return None
+
+
+def list_files(bucket: str, prefix: str = "") -> list:
+    """List files in a bucket under the given prefix. Returns a list of items (dict or str).
+
+    This uses the storage client's `list` method when available and falls back to REST if needed.
+    """
+    client = _ensure_client()
+    storage = client.storage.from_(bucket)
+    try:
+        # try storage.list(prefix) (client library may accept prefix param)
+        try:
+            res = storage.list(prefix)
+        except TypeError:
+            # some clients expect 'path' keyword
+            res = storage.list(path=prefix)
+
+        # normalize response
+        if isinstance(res, dict):
+            # common wrapper key 'data' or 'result'
+            for key in ("data", "result", "files", "objects"):
+                if key in res and isinstance(res[key], list):
+                    return res[key]
+            # fallback to list of values
+            return [v for v in res.values() if isinstance(v, list)][0] if any(isinstance(v, list) for v in res.values()) else []
+        return getattr(res, 'data', None) or []
+    except Exception as e:
+        # try REST list endpoint
+        try:
+            url = SUPABASE_URL.rstrip('/') + f"/storage/v1/object/list/{bucket}"
+            headers = {"Authorization": f"Bearer {SUPABASE_KEY}", "apikey": SUPABASE_KEY, "Content-Type": "application/json"}
+            payload = {"prefix": prefix}
+            r = requests.post(url, headers=headers, json=payload, timeout=10)
+            r.raise_for_status()
+            data = r.json()
+            if isinstance(data, list):
+                return data
+            # some responses may wrap list in a key
+            for key in ("data", "result", "files", "objects"):
+                if key in data and isinstance(data[key], list):
+                    return data[key]
+        except Exception:
+            print(f"[DEBUG supabase] list_files fallback failed for bucket={bucket} prefix={prefix}: {e}")
+    return []
+
+
 def upload_file_from_storage(bucket: str, nik: int, file_storage, dest_folder: str, field_name: str):
     """Helper to upload a Flask/Werkzeug FileStorage to Supabase Storage.
 
