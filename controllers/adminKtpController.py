@@ -4,7 +4,7 @@ from utils.supabase_client import make_absolute_signed_url as _make_absolute_sig
 from sqlalchemy.exc import IntegrityError
 from extension import db
 from models.ktpModel import KTP
-from schema.adminKtpSchema import admin_ktp_schema, admin_update_status_schema
+from schema.adminKtpSchema import admin_ktp_schema, admin_update_status_schema, admin_ktp_summary_schema
 from marshmallow import ValidationError
 from dotenv import load_dotenv
 
@@ -19,11 +19,8 @@ def get_all_ktp_admin_controller():
         if not ktps:
             return jsonify({"message": "Tidak ada data KTP yang ditemukan"}), 404
 
-        data = [admin_ktp_schema.dump(k) for k in ktps]
-        # Convert any relative signed paths to absolute signed URLs (refresh token if needed)
-        for item in data:
-            item["foto_ktp"] = _resolve_image_url(item.get("foto_ktp"))
-            item["foto_surat_pengantar_rt_rw"] = _resolve_image_url(item.get("foto_surat_pengantar_rt_rw"))
+        # Use summary schema for listing to avoid including/resolving photo fields
+        data = [admin_ktp_summary_schema.dump(k) for k in ktps]
         return jsonify({"message": "Data KTP berhasil diambil", "count": len(data), "data": data}), 200
 
     except Exception as e:
