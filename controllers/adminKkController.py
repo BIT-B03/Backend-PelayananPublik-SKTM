@@ -1,4 +1,5 @@
 from flask import jsonify, request
+from utils.supabase_client import resolve_image_url as _resolve_image_url
 from sqlalchemy.exc import IntegrityError
 from extension import db
 from models.kartukeluargaModel import KartuKeluarga
@@ -58,6 +59,9 @@ def get_all_kartu_keluarga_admin_controller():
             item = admin_kk_schema.dump(kk)
             hc = HumanCapital.query.filter_by(nik=item.get('nik')).first()
             item['human_capital'] = admin_hc_schema.dump(hc) if hc else None
+            # resolve foto_kk if present
+            if isinstance(item, dict) and item.get('foto_kk'):
+                item['foto_kk'] = _resolve_image_url(item.get('foto_kk'))
             data.append(item)
 
         return jsonify({"message": "Data Kartu Keluarga berhasil diambil", "count": len(data), "data": data}), 200
@@ -77,6 +81,10 @@ def get_kartu_keluarga_detail_admin_controller(nik: int):
         response_data = admin_kk_schema.dump(kk)
         hc = HumanCapital.query.filter_by(nik=nik).first()
         response_data['human_capital'] = admin_hc_schema.dump(hc) if hc else None
+
+        # resolve foto_kk
+        if isinstance(response_data, dict) and response_data.get('foto_kk'):
+            response_data['foto_kk'] = _resolve_image_url(response_data.get('foto_kk'))
 
         return jsonify({"message": "Data Kartu Keluarga berhasil diambil", "data": response_data}), 200
 

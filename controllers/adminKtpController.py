@@ -1,9 +1,14 @@
 from flask import jsonify, request
+import os
+from utils.supabase_client import make_absolute_signed_url as _make_absolute_signed_url, resolve_image_url as _resolve_image_url
 from sqlalchemy.exc import IntegrityError
 from extension import db
 from models.ktpModel import KTP
 from schema.adminKtpSchema import admin_ktp_schema, admin_update_status_schema
 from marshmallow import ValidationError
+from dotenv import load_dotenv
+
+load_dotenv()
 
 def get_all_ktp_admin_controller():
     try:
@@ -15,6 +20,10 @@ def get_all_ktp_admin_controller():
             return jsonify({"message": "Tidak ada data KTP yang ditemukan"}), 404
 
         data = [admin_ktp_schema.dump(k) for k in ktps]
+        # Convert any relative signed paths to absolute signed URLs (refresh token if needed)
+        for item in data:
+            item["foto_ktp"] = _resolve_image_url(item.get("foto_ktp"))
+            item["foto_surat_pengantar_rt_rw"] = _resolve_image_url(item.get("foto_surat_pengantar_rt_rw"))
         return jsonify({"message": "Data KTP berhasil diambil", "count": len(data), "data": data}), 200
 
     except Exception as e:
@@ -29,7 +38,11 @@ def get_ktp_detail_admin_controller(nik: int):
         if not ktp:
             return jsonify({"message": f"KTP untuk nik {nik} tidak ditemukan"}), 404
 
-        return jsonify({"message": "Data KTP berhasil diambil", "data": admin_ktp_schema.dump(ktp)}), 200
+        result = admin_ktp_schema.dump(ktp)
+        # Convert any relative signed paths to absolute signed URLs (refresh token if needed)
+        result["foto_ktp"] = _resolve_image_url(result.get("foto_ktp"))
+        result["foto_surat_pengantar_rt_rw"] = _resolve_image_url(result.get("foto_surat_pengantar_rt_rw"))
+        return jsonify({"message": "Data KTP berhasil diambil", "data": result}), 200
 
     except Exception as e:
         return jsonify({"message": f"Terjadi kesalahan server: {str(e)}"}), 500

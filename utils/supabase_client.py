@@ -1,9 +1,13 @@
 import os
 import requests
+from urllib.parse import quote
 from uuid import uuid4
 import time
 from supabase import create_client
 from datetime import datetime, timedelta
+from dotenv import load_dotenv
+
+load_dotenv()
 
 SUPABASE_URL = os.environ.get("SUPABASE_URL")
 SUPABASE_KEY = os.environ.get("SUPABASE_KEY")
@@ -319,3 +323,59 @@ def upload_file_from_storage(bucket: str, nik: int, file_storage, dest_folder: s
     path = f"{nik}/{dest_folder}/{unique_name}"
     file_bytes = file_storage.read()
     return upload_file(bucket, path, file_bytes, content_type=getattr(file_storage, 'mimetype', None))
+
+
+def make_absolute_signed_url(value: str) -> str:
+    if not value or not isinstance(value, str):
+        return value
+    if value.startswith('/'):
+        if SUPABASE_URL:
+            return f"{SUPABASE_URL}/storage/v1{value}"
+    return value
+
+
+def resolve_image_url(value: str, expires: int = 3600) -> str:
+    if not value or not isinstance(value, str):
+        return value
+
+    if value.startswith('http://') or value.startswith('https://'):
+        return value
+
+    prefix = '/object/sign/'
+    if value.startswith(prefix):
+        rest = value[len(prefix):]
+        path_part = rest.split('?', 1)[0]
+        if '/' not in path_part:
+            return make_absolute_signed_url(value)
+        bucket, object_path = path_part.split('/', 1)
+
+        service_key = os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or SUPABASE_KEY
+        if not SUPABASE_URL or not service_key:
+            return make_absolute_signed_url(value)
+
+        encoded = quote(object_path, safe='/')
+        sign_endpoint = f"{SUPABASE_URL}/storage/v1/object/sign/{bucket}/{encoded}"
+        headers = {"Authorization": f"Bearer {service_key}", "Content-Type": "application/json"}
+        payload = {"expiresIn": expires}
+        try:
+            r = requests.post(sign_endpoint, headers=headers, json=payload, timeout=10)
+            if r.status_code == 200:
+                try:
+                    data = r.json()
+                    for key in ("signedURL", "signedUrl", "signed_url", "url"):
+                        if key in data and isinstance(data[key], str):
+                            url = data[key]
+                            if url.startswith('/'):
+                                return f"{SUPABASE_URL}/storage/v1{url}"
+                            return url
+                except Exception:
+                    text = r.text
+                    if isinstance(text, str) and text.startswith('/'):
+                        return f"{SUPABASE_URL}/storage/v1{text}"
+                    return text
+            # non-200 -> fallback
+            return make_absolute_signed_url(value)
+        except requests.RequestException:
+            return make_absolute_signed_url(value)
+
+    return make_absolute_signed_url(value)

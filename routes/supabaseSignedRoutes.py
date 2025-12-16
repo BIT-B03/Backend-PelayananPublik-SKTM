@@ -5,7 +5,6 @@ from urllib.parse import quote
 from dotenv import load_dotenv
 from utils.auth import jwt_required_custom, role_required
 
-# ensure environment variables from .env are loaded when this module is imported
 load_dotenv()
 
 supabase_bp = Blueprint('supabase', __name__)
@@ -14,13 +13,6 @@ supabase_bp = Blueprint('supabase', __name__)
 @jwt_required_custom()
 @role_required('petugas', 'admin')
 def get_signed_url():
-    """
-    Return a signed URL for a storage object.
-
-    Query params:
-      - path: object path inside bucket, e.g. '1234567890123456/kondisi_ekonomi/file.png'
-      - expires: seconds until expiry (optional, default 3600)
-    """
     SUPABASE_URL = os.environ.get('SUPABASE_URL')
     SERVICE_KEY = os.environ.get('SUPABASE_SERVICE_ROLE_KEY') or os.environ.get('SUPABASE_KEY')
     BUCKET = os.environ.get('SUPABASE_STORAGE_BUCKET', 'public')
@@ -62,6 +54,19 @@ def get_signed_url():
         return jsonify({"error": "failed to create signed url", "detail": resp.text}), 502
 
     try:
-        return jsonify(resp.json()), 200
+        data = resp.json()
+        # Jika Supabase merespon dengan path relatif (mis. "/object/sign/.."),
+        # ubah menjadi URL penuh sehingga frontend bisa langsung memakainya.
+        if isinstance(data, dict):
+            possible_keys = ("signedURL", "signedUrl", "signed_url", "url")
+            for key in possible_keys:
+                if key in data and isinstance(data[key], str) and data[key].startswith("/"):
+                    data[key] = f"{SUPABASE_URL}/storage/v1{data[key]}"
+                    break
+        return jsonify(data), 200
     except Exception:
-        return jsonify({"signedURL": resp.text}), 200
+        # Fallback: resp.text mungkin berisi path relatif
+        text = resp.text
+        if isinstance(text, str) and text.startswith("/"):
+            text = f"{SUPABASE_URL}/storage/v1{text}"
+        return jsonify({"signedURL": text}), 200

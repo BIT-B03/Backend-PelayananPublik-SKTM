@@ -1,4 +1,5 @@
 from extension import db
+from utils.supabase_client import resolve_image_url as _resolve_image_url
 from models.kondisirumahModel import KondisiRumah
 from models.kondisiekonomiModel import KondisiEkonomi
 from models.masyarakatModel import Masyarakat
@@ -26,6 +27,19 @@ def list_kondisi_admin(page: int = 1, per_page: int = 100):
             "kondisi_rumah": rumah_schema.dump(rumah) if rumah else None,
             "kondisi_ekonomi": ekonomi_schema.dump(ekonomi) if ekonomi else None,
         }
+        # Resolve any foto_* fields inside nested schemas
+        kr = entry.get("kondisi_rumah")
+        if isinstance(kr, dict):
+            for k, v in list(kr.items()):
+                if k.startswith("foto_"):
+                    kr[k] = _resolve_image_url(v)
+
+        ke = entry.get("kondisi_ekonomi")
+        if isinstance(ke, dict):
+            for k, v in list(ke.items()):
+                if k.startswith("foto_"):
+                    ke[k] = _resolve_image_url(v)
+
         result_list.append(entry)
 
     return jsonify({"data": result_list}), 200
@@ -42,6 +56,19 @@ def get_kondisi_admin(nik: int):
         "kondisi_rumah": rumah_schema.dump(rumah) if rumah else None,
         "kondisi_ekonomi": ekonomi_schema.dump(ekonomi) if ekonomi else None,
     }
+    # Resolve foto_* fields
+    kr = result.get("kondisi_rumah")
+    if isinstance(kr, dict):
+        for k, v in list(kr.items()):
+            if k.startswith("foto_"):
+                kr[k] = _resolve_image_url(v)
+
+    ke = result.get("kondisi_ekonomi")
+    if isinstance(ke, dict):
+        for k, v in list(ke.items()):
+            if k.startswith("foto_"):
+                ke[k] = _resolve_image_url(v)
+
     return jsonify({"data": result}), 200
 
 
