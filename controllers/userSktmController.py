@@ -88,6 +88,23 @@ def download_sktm_controller(nik: int):
     alamat = getattr(ktp, 'alamat', '') if ktp else ''
 
     # Build data dict for layout helper
+    # compute realtime date for the surat: use env `SKTM_KOTA` if set, append today's date
+    kota_env = os.environ.get('SKTM_KOTA', '').strip()
+    # fallback to configured KECAMATAN env (strip the leading label if present)
+    if not kota_env:
+        kec = (KECAMATAN or '').replace('Kecamatan: ', '').strip()
+        kota_env = kec
+    today = datetime.utcnow().strftime('%d %B %Y')
+    if kota_env:
+        kota_tanggal_val = f"{kota_env}, {today}"
+    else:
+        kota_tanggal_val = today
+
+    kepala_nama_val = os.environ.get('SKTM_KEPALA_NAMA', '').strip()
+
+    # debug: log what will be printed in signature area
+    print(f"[DEBUG sktm.data] kota_tanggal={kota_tanggal_val!r} kepala_nama={kepala_nama_val!r}")
+
     data = {
         'kepala_desa': VILLAGE_HEAD.replace('Kepala Desa: ', '') if VILLAGE_HEAD else '',
         'kecamatan': KECAMATAN.replace('Kecamatan: ', '') if KECAMATAN else '',
@@ -98,8 +115,8 @@ def download_sktm_controller(nik: int):
         'jenis_kelamin': jenis_kelamin,
         'alamat': alamat,
         'pernyataan_paragraf': None,
-        'kota_tanggal': f"{os.environ.get('SKTM_KOTA', '')}",
-        'kepala_nama': os.environ.get('SKTM_KEPALA_NAMA', ''),
+        'kota_tanggal': kota_tanggal_val,
+        'kepala_nama': kepala_nama_val,
     }
 
     start_all = time.time()

@@ -151,3 +151,24 @@ def can_download_sktm(nik: int):
 @jwt_required_custom()
 def download_sktm(nik: int):
     return download_sktm_controller(nik)
+
+# --- Form fill progress (computed from existing tables, no draft table required) ---
+@user_bp.route('/forms/progress/<int:user_id>/<string:form_type>', methods=['GET'])
+@jwt_required_custom()
+def get_form_progress(user_id, form_type):
+    from controllers.formDraftController import compute_fill_progress_controller
+    return compute_fill_progress_controller(user_id, form_type)
+
+
+@user_bp.route('/forms/progress/me/<string:form_type>', methods=['GET'])
+@jwt_required_custom()
+def get_my_form_progress(form_type):
+    from utils.auth import get_current_identity
+    from controllers.formDraftController import compute_fill_progress_controller
+    identity = get_current_identity()
+    try:
+        nik = int(identity)
+    except Exception:
+        # if identity is not numeric, return error
+        return {'message': 'invalid_identity'}, 400
+    return compute_fill_progress_controller(nik, form_type)

@@ -45,8 +45,12 @@ def generate_sktm_pdf_bytes(data: dict) -> bytes:
     value_x = left + 60 * mm
     for label, key in (("KEPALA DESA", "kepala_desa"), ("KECAMATAN", "kecamatan"), ("KABUPATEN", "kabupaten")):
         val = data.get(key, "") or ""
-        p.drawString(label_x, y, f"{label} :")
-        p.drawString(value_x, y, str(val))
+        p.setFont("Helvetica-Bold", 11)
+        p.drawString(label_x, y, label)
+        p.setFont("Helvetica", 11)
+        # draw colon aligned at value_x like other fields
+        p.drawString(value_x, y, ":")
+        p.drawString(value_x + 8 * mm, y, str(val))
         y -= 7 * mm
 
     y -= 4 * mm
@@ -78,34 +82,49 @@ def generate_sktm_pdf_bytes(data: dict) -> bytes:
     # Statement paragraph
     p.setFont("Helvetica", 11)
     paragraph = data.get('pernyataan_paragraf') or (
-        "Dengan ini menerangkan bahwa nama tersebut benar warga kami yang masuk dalam keluarga kurang mampu/miskin."
-    )
-    # Wrap paragraph into lines that fit the width
+        "Dengan ini menerangkan bahwa nama tersebut benar merupakan warga kami yang tergolong keluarga kurang mampu "
+        "dan memerlukan keterangan ini untuk keperluan administratif serta mendapatkan bantuan yang semestinya. "
+        "Surat keterangan ini dibuat berdasarkan data yang tercatat dan dapat digunakan sesuai kebutuhan penerima.")
+    # Use platypus Paragraph for nicer justification and let it wrap naturally
     max_width = right - left
-    # Use simple wrap at ~90 chars as fall back
-    wrapped = textwrap.fill(paragraph, 100)
-    # Use platypus Paragraph for nicer justification
     styles = getSampleStyleSheet()
     ps = styles['Normal']
     ps.fontName = 'Helvetica'
     ps.fontSize = 11
+    ps.leading = 14
     ps.alignment = TA_JUSTIFY
-    para = Paragraph(wrapped.replace('\n', '<br/>'), ps)
-    # draw the paragraph with a simple frame
+    # preserve any intentional line breaks, but let Paragraph handle wrapping
+    para = Paragraph(paragraph.replace('\n', '<br/>'), ps)
+    # draw the paragraph with a slightly larger frame to avoid premature clipping
     from reportlab.platypus import Frame
-    frame_height = 50 * mm
+    frame_height = 60 * mm
     f = Frame(left, y - frame_height + 6 * mm, max_width, frame_height, showBoundary=0)
     f.addFromList([para], p)
     y -= frame_height + 6 * mm
 
-    # Closing and signature area
+    # Closing and signature area (centered)
     y -= 6 * mm
     kota = data.get('kota_tanggal') or ''
-    p.drawString(right - 80 * mm, y, kota)
+    p.drawCentredString((left + right) / 2.0, y, kota)
+    y -= 8 * mm
+
+    # Center label and signature block
+    center_x = (left + right) / 2.0
+    p.setFont("Helvetica-Bold", 11)
+    p.drawCentredString(center_x, y, "KEPALA DESA :")
     y -= 6 * mm
-    p.drawString(right - 80 * mm, y, "KEPALA DESA :")
-    y -= 18 * mm
-    p.drawString(right - 80 * mm, y, data.get('kepala_nama', ''))
+
+    # leave space for handwritten signature: draw a centered signature line
+    sig_gap = 20 * mm
+    sig_y = y - sig_gap
+    line_length = 60 * mm
+    p.line(center_x - line_length / 2.0, sig_y, center_x + line_length / 2.0, sig_y)
+
+    # print kepala name below the signature line (use kepala_desa first, fallback to kepala_nama)
+    name_y = sig_y - 10 * mm
+    p.setFont("Helvetica-Bold", 11)
+    kepala_print = data.get('kepala_desa') or data.get('kepala_nama') or ''
+    p.drawCentredString(center_x, name_y, kepala_print)
 
     p.showPage()
     p.save()
