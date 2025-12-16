@@ -4,7 +4,7 @@ from models.kondisirumahModel import KondisiRumah
 from models.kondisiekonomiModel import KondisiEkonomi
 from models.masyarakatModel import Masyarakat
 from schema.adminKondisiEkonomiSchema import admin_status_update_schema
-from schema.userKondisiEkonomiSchema import rumah_schema, ekonomi_schema
+from schema.userKondisiEkonomiSchema import rumah_schema, ekonomi_schema, rumah_summary_schema, ekonomi_summary_schema
 from marshmallow import ValidationError
 from flask import request, jsonify
 
@@ -22,24 +22,12 @@ def list_kondisi_admin(page: int = 1, per_page: int = 100):
     result_list = []
     for rumah in pag_items:
         ekonomi = KondisiEkonomi.query.filter_by(nik=rumah.nik).first()
+        # use summary schemas to avoid including photo fields in listing
         entry = {
             "nik": rumah.nik,
-            "kondisi_rumah": rumah_schema.dump(rumah) if rumah else None,
-            "kondisi_ekonomi": ekonomi_schema.dump(ekonomi) if ekonomi else None,
+            "kondisi_rumah": rumah_summary_schema.dump(rumah) if rumah else None,
+            "kondisi_ekonomi": ekonomi_summary_schema.dump(ekonomi) if ekonomi else None,
         }
-        # Resolve any foto_* fields inside nested schemas
-        kr = entry.get("kondisi_rumah")
-        if isinstance(kr, dict):
-            for k, v in list(kr.items()):
-                if k.startswith("foto_"):
-                    kr[k] = _resolve_image_url(v)
-
-        ke = entry.get("kondisi_ekonomi")
-        if isinstance(ke, dict):
-            for k, v in list(ke.items()):
-                if k.startswith("foto_"):
-                    ke[k] = _resolve_image_url(v)
-
         result_list.append(entry)
 
     return jsonify({"data": result_list}), 200

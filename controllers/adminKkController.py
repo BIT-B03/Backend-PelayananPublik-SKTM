@@ -9,6 +9,7 @@ from schema.adminKkSchema import (
     admin_hc_schema,
     admin_update_kk_status_schema,
     admin_update_hc_status_schema,
+    admin_kk_summary_schema,
 )
 from marshmallow import ValidationError
 
@@ -56,12 +57,11 @@ def get_all_kartu_keluarga_admin_controller():
 
         data = []
         for kk in kks:
-            item = admin_kk_schema.dump(kk)
+            # Use summary schema for list to avoid returning foto_kk
+            item = admin_kk_summary_schema.dump(kk)
             hc = HumanCapital.query.filter_by(nik=item.get('nik')).first()
             item['human_capital'] = admin_hc_schema.dump(hc) if hc else None
             # resolve foto_kk if present
-            if isinstance(item, dict) and item.get('foto_kk'):
-                item['foto_kk'] = _resolve_image_url(item.get('foto_kk'))
             data.append(item)
 
         return jsonify({"message": "Data Kartu Keluarga berhasil diambil", "count": len(data), "data": data}), 200

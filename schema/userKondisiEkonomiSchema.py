@@ -7,11 +7,21 @@ class KondisiRumahSchema(ma.Schema):
     foto_kamar_mandi = fields.String(required=True)
     status = fields.String(validate=validate.OneOf(["B", "T", "P"]), missing="P")
 
+# Summary schema excluding photo fields for list endpoints
+class KondisiRumahSummarySchema(ma.Schema):
+    status = fields.String(validate=validate.OneOf(["B", "T", "P"]), missing="P")
+
 class KondisiEkonomiSchema(ma.Schema):
     nominal_slip_gaji = fields.Integer(required=True)
     foto_slip_gaji = fields.String(required=True)
     daya_listrik_va = fields.Integer(required=False, allow_none=True)
     foto_token_listrik = fields.String(required=True)
+    status = fields.String(validate=validate.OneOf(["B", "T", "P"]), missing="P")
+
+# Summary schema excluding photo fields for list endpoints
+class KondisiEkonomiSummarySchema(ma.Schema):
+    nominal_slip_gaji = fields.Integer(required=True)
+    daya_listrik_va = fields.Integer(required=False, allow_none=True)
     status = fields.String(validate=validate.OneOf(["B", "T", "P"]), missing="P")
 
 class UserKondisiEkonomiSchema(ma.Schema):
@@ -22,3 +32,7 @@ class UserKondisiEkonomiSchema(ma.Schema):
 user_schema = UserKondisiEkonomiSchema()
 rumah_schema = KondisiRumahSchema()
 ekonomi_schema = KondisiEkonomiSchema()
+
+# summary schemas (for admin list endpoints)
+rumah_summary_schema = KondisiRumahSummarySchema()
+ekonomi_summary_schema = KondisiEkonomiSummarySchema()

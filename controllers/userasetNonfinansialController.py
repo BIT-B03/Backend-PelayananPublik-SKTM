@@ -33,7 +33,9 @@ def create_user_aset():
     if AsetNonFinancial.query.filter_by(nik=nik).first():
         return jsonify({"message": "Data for this nik already exists"}), 400
 
+    # ensure payload contains nik for schema validation when identity provided
     try:
+        payload["nik"] = nik
         data = user_schema.load(payload)
     except ValidationError as ve:
         return jsonify({"message": "Validation error", "errors": ve.messages}), 400
@@ -63,7 +65,7 @@ def get_user_aset(nik: int):
 
     aset = AsetNonFinancial.query.filter_by(nik=nik).first()
     if not aset:
-        return jsonify({"message": "Not found"}), 404
+        return jsonify({"data": None, "message": "Not found"}), 200
 
     return jsonify({"data": user_schema.dump(aset)}), 200
 
@@ -73,10 +75,31 @@ def update_user_aset(nik: int):
         return jsonify({"message": "Method Not Allowed"}), 405
 
     aset = AsetNonFinancial.query.filter_by(nik=nik).first()
-    if not aset:
-        return jsonify({"message": "Not found"}), 404
-
     payload = request.get_json() or {}
+
+    # If aset not found, treat PUT as upsert: create new resource
+    if not aset:
+        try:
+            data = user_schema.load(payload)
+        except ValidationError as ve:
+            return jsonify({"message": "Validation error", "errors": ve.messages}), 400
+        except Exception as e:
+            return jsonify({"message": "Validation error", "errors": str(e)}), 400
+
+        aset = AsetNonFinancial(nik=nik, total_kendaraan=data.get("total_kendaraan"), status=data.get("status", "P"))
+        for item in data.get("detail_kendaraan", []):
+            dk = DetailKendaraan(
+                jenis_kendaraan=item["jenis_kendaraan"],
+                tipe_kendaraan=item["tipe_kendaraan"],
+                tahun_pembuatan=item["tahun_pembuatan"],
+                status=item.get("status", "P"),
+            )
+            aset.detail_kendaraan.append(dk)
+
+        db.session.add(aset)
+        db.session.commit()
+
+        return jsonify({"message": "Created", "data": user_schema.dump(aset)}), 201
 
     # allow partial updates
     try:
