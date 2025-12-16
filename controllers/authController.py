@@ -23,7 +23,7 @@ def register_controller(payload: dict) -> Tuple[dict, int]:
         return {"error": "Bad Request", "message": err.messages}, 400
 
     if Masyarakat.query.filter_by(nik=data["nik"]).first():
-        return {"error": "Conflict", "message": "NIK sudah terdaftar"}, 409
+        return {"error": "Conflict", "message": "NIK already in use"}, 409
 
     password_hash = generate_password_hash(data["password"])
 
@@ -49,10 +49,10 @@ def login_controller(payload: dict) -> Tuple[dict, int]:
 
     user = Masyarakat.query.filter_by(nik=data["nik"]).first()
     if not user:
-        return {"error": "Unauthorized", "message": "Invalid credentials"}, 401
+        return {"error": "Unauthorized", "message": "Invalid NIK"}, 401
 
     if not check_password_hash(user.password, data["password"]):
-        return {"error": "Unauthorized", "message": "Invalid credentials"}, 401
+        return {"error": "Unauthorized", "message": "Invalid Password"}, 401
 
     device_id = payload.get("device_id") or str(uuid.uuid4())
     device_name = payload.get("device_name")
