@@ -26,6 +26,10 @@ from controllers.userProfileController import (
     get_my_profile_controller,
     update_my_profile_controller,
 )
+from controllers.userSktmController import (
+    can_download_sktm_controller,
+    download_sktm_controller,
+)
 
 user_bp = Blueprint('user', __name__)
 
@@ -134,3 +138,16 @@ def get_my_profil():
 @jwt_required_custom()
 def update_my_profil():
     return update_my_profile_controller()
+
+
+# --- SKTM routes ---
+@user_bp.route('/sktm/<int:nik>/can-download', methods=['GET'])
+@jwt_required_custom()
+def can_download_sktm(nik: int):
+    return can_download_sktm_controller(nik)
+
+
+@user_bp.route('/sktm/<int:nik>/download', methods=['GET'])
+@jwt_required_custom()
+def download_sktm(nik: int):
+    return download_sktm_controller(nik)
