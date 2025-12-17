@@ -6,6 +6,7 @@ from config import Config
 from extension import db, migrate
 from sqlalchemy import text
 from utils.auth import init_jwt
+from flask_cors import CORS
 
 
 def create_app(config_class: type[Config] = Config) -> Flask:
@@ -21,6 +22,7 @@ def create_app(config_class: type[Config] = Config) -> Flask:
     ma.init_app(app)
 
     init_jwt(app)
+    CORS(app, resources={r"/*": {"origins": ["https://frontend-web-pelayanan-publik-sktm.vercel.app"]}}, supports_credentials=True)
 
     with app.app_context():
         import models
